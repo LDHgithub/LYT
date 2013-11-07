@@ -13,31 +13,12 @@ window.SEARCH_GENERAL_ERROR = {}
 
 # --------
 
-# Define the `LYT.catalog` object
+# Define the `LYT.catalog` object (Singleton)
 LYT.catalog = do ->
 
+
+  # --------------- PRIVATE functions and properties ---------------
   autocompleteCache = {}
-
-  # Sorting options for the server-side function
-  SORTING_OPTIONS =
-    "new":        0 # default
-    "lastweek":   1
-    "lastmonth":  2
-    "last3month": 3
-    "thisyear":   4
-    "forever":    5
-
-  # Fields to be searched by the server-side function
-  FIELD_OPTIONS =
-    "freetext": 0 # all fields (default)
-    "author":   1
-    "title":    2
-    "keywords": 3
-    "speaker":  4
-    "teaser":   5
-    "series":   6
-
-
 
   emit = (event, data = {}) ->
     obj = jQuery.Event event
@@ -56,6 +37,26 @@ LYT.catalog = do ->
     data:        JSON.stringify data
     url:         url
 
+ # --------------- PUBLIC functions and properties ---------------
+
+ # Sorting options for the server-side function
+  SORTING_OPTIONS :
+    "new":        0 # default
+    "lastweek":   1
+    "lastmonth":  2
+    "last3month": 3
+    "thisyear":   4
+    "forever":    5
+
+  # Fields to be searched by the server-side function
+  FIELD_OPTIONS :
+    "freetext": 0 # all fields (default)
+    "author":   1
+    "title":    2
+    "keywords": 3
+    "speaker":  4
+    "teaser":   5
+    "series":   6
 
   # Perform a "full" search. Takes the search term as its
   # only argument, and returns a deferred object.
@@ -64,7 +65,7 @@ LYT.catalog = do ->
   # In case of an error, the deferred will be rejected with the
   # `SEARCH_GENERAL_ERROR` constant, the response status, and
   # the error thrown
-  search = (term, page = 1, params = {}, pageSize = null) ->
+  search : (term, page = 1, params = {}, pageSize = null) ->
 
     # AJAX success handler
     success = (data, status, jqHXR) ->
@@ -132,12 +133,12 @@ LYT.catalog = do ->
 
 
   # Attach the autocomplete eventhandler to the element passed
-  attachAutocomplete = (element) ->
+  attachAutocomplete : (element) ->
     jQuery(element).autocomplete getAutocompleteOptions()
 
 
   # Returns an options array for the autocomplete function.
-  getAutocompleteOptions = ->
+  getAutocompleteOptions : ->
     # Clone the autocomplete options from config
     setup = jQuery.extend {}, (LYT.config.catalog.autocomplete.setup or {})
 
@@ -209,7 +210,7 @@ LYT.catalog = do ->
     setup
 
   # Get book suggestions
-  getSuggestions = ->
+  getSuggestions : ->
     deferred = jQuery.Deferred()
 
     data = memberid: String( LYT.session.getMemberId() )
@@ -240,7 +241,7 @@ LYT.catalog = do ->
 
     deferred.promise()
 
-  LookUpAutocompleteWords = (terms) ->
+  LookUpAutocompleteWords : (terms) ->
     deferred = jQuery.Deferred()
 
     data = '{terms:["' + terms.join('","') + '"]}'
@@ -261,7 +262,7 @@ LYT.catalog = do ->
 
     deferred.promise()
   # Get autocomplete surgestions...direct...
-  getAutoComplete = (term) ->
+  getAutoComplete : (term) ->
     deferred = jQuery.Deferred()
 
     data = term: String(term)
@@ -280,8 +281,8 @@ LYT.catalog = do ->
 
 
     deferred.promise()
-    
-  getDetails = (bookId) ->
+
+  getDetails : (bookId) ->
     deferred = jQuery.Deferred()
 
     data = itemid: String( bookId )
@@ -306,16 +307,3 @@ LYT.catalog = do ->
       deferred.reject()
 
     deferred.promise()
-
-  # ## Public API
-
-  SORTING_OPTIONS:        SORTING_OPTIONS
-  FIELD_OPTIONS:          FIELD_OPTIONS
-  search:                 search
-  attachAutocomplete:     attachAutocomplete
-  getAutocompleteOptions: getAutocompleteOptions
-  getSuggestions:         getSuggestions
-  getDetails:             getDetails
-  getAutoComplete:        getAutoComplete
-  LookUpAutocompleteWords:LookUpAutocompleteWords
-

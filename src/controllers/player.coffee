@@ -23,11 +23,10 @@ LYT.player =
 
   # Short utility methods ################################################### #
 
-  playlist: -> @book?.playlist
+  
+  segment: -> @book?.currentSegment
 
-  segment: -> @playlist().currentSegment
-
-  section: -> @playlist().currentSection()
+  section: -> @book?.currentSection()
 
   # Be cautious only read from the returned status object
   getStatus: -> @el.data('jPlayer').status
@@ -352,7 +351,6 @@ LYT.player =
           # This block uses the current segment for synchronization.
           log.message "Player: play: progress: queue for offset #{time}"
           log.message "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}], no segment at #{time}, skipping to next segment."
-
           timeoutHandler = ->
             LYT.loader.register 'Loading book', nextSegment
             LYT.render.disablePlayerNavigation()
@@ -385,7 +383,7 @@ LYT.player =
             if next?
               if next.audio is status.src and next.start - 0.1 < time < next.end + 0.1
                 # Audio has progressed to next segment, so just update
-                @playlist.currentSegment = next
+                @book.currentSegment = next
                 @updateHtml next
               else
                 # The segment next requires a seek and maybe loading a
@@ -409,7 +407,7 @@ LYT.player =
           log.group "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}]: ", segment
         else
           log.message 'Player: play: progress: no current segment set.'
-        nextSegment = @playlist().segmentByAudioOffset status.src, time
+        nextSegment = @book.segmentByAudioOffset status.src, time
         nextSegment.fail (error) ->
           # TODO: The user may have navigated to a place in the audio stream
           #       that isn't included in the book. This should be handled by
@@ -450,7 +448,7 @@ LYT.player =
     # TODO: [play-controllers] Make sure to call updateHtml once book-player
     #       is displayed.
     if url
-      promise = promise.then => @playlist().segmentByURL url
+      promise = promise.then => @book.segmentByURL url
       promise = promise.then(
         (segment) =>
           log.message "Player: seekSmilOffsetOrLastmark: got segment - seeking"
@@ -461,10 +459,10 @@ LYT.player =
             log.message "Player: failed to load #{url} containing auto generated bookmarks - rewinding to start"
           else
             log.error "Player: failed to load url #{url}: #{error} - rewinding to start"
-          @playlist().rewind()
+          @book.rewind()
       )
     else
-      promise = promise.then => @playlist().rewind()
+      promise = promise.then => @book.rewind()
       promise = promise.then (segment) => @seekSegmentOffset segment, 0
 
     promise.fail -> log.error "Player: failed to find segment: #{url}"
@@ -572,19 +570,19 @@ LYT.player =
   # Returns segment promise
   # TODO: provide a visual cue on the next and previous section buttons if there are no next or previous section.
   nextSegment: ->
-    return unless @playlist()?
-    if @playlist().hasNextSegment() is false
+    return unless @book?
+    if @book.hasNextSegment() is false
       LYT.render.bookEnd()
       delete @book.lastmark
       @book.saveBookmarks()
       return
-    @navigate @playlist().nextSegment()
+    @navigate @book.nextSegment()
 
   # Skip to next segment
   # Returns segment promise
   previousSegment: ->
-    return unless @playlist()?.hasPreviousSegment()
-    @navigate @playlist().previousSegment()
+    return unless @book?.hasPreviousSegment()
+    @navigate @book.previousSegment()
 
   updateLastMark: (force = false, segment) ->
     return unless LYT.session.getCredentials() and LYT.session.getCredentials().username isnt LYT.config.service.guestLogin
@@ -620,7 +618,7 @@ LYT.player =
 
   refreshContent: ->
     # Using timeout to ensure that we don't call updateHtml too often
-    refreshHandler = => @updateHtml segment if @playlist() and segment = @segment()
+    refreshHandler = => @updateHtml segment if @book and segment = @segment()
     clearTimeout @refreshTimer if @refreshTimer
     @refreshTimer = setTimeout refreshHandler, 500
 

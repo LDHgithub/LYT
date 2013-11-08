@@ -170,3 +170,5 @@ class LYT.Playlist
 
   segmentBySectionOffset: (section, offset = 0) ->
     @load section.pipe (section) -> @_fudgeFix offset, section.getSegmentByOffset offset
+
+    

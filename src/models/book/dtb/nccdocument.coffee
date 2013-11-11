@@ -12,9 +12,9 @@ do ->
   #        an extension of the getConsecutive procedure that does the linking
   #        handled by flattenStructure followed by linkSections.
   class LYT.NCCDocument extends LYT.TextContentDocument
-    constructor: (url, resources) ->
+    constructor: (url, book) ->
       super url, (deferred) =>
-        @structure = parseStructure @source, resources
+        @structure = parseStructure @source, book
         @sections  = flattenStructure @structure
         linkSections @sections
         section.nccDocument = this for section in @sections
@@ -85,7 +85,7 @@ do ->
 
   # Internal helper function to parse the (flat) heading structure of an NCC document
   # into a nested collection of `NCCSection` objects
-  parseStructure = (xml, resources) ->
+  parseStructure = (xml, book) ->
     # Collects consecutive heading of the given level or higher in the `collector`.
     # I.e. given a level of 3, it will collect all `H3` elements until it hits an `H1`
     # element. Each higher level (i.e. `H4`) heading encountered along the way will be
@@ -100,7 +100,7 @@ do ->
         # Return the current index if the heading isn't the given level
         return index if heading.tagName.toLowerCase() isnt "h#{level}"
         # Create a section object
-        section = new LYT.Section heading, resources
+        section = new LYT.Section heading, book
         section.parent = level-1
         # Collect all higher-level headings into that section's `children` array,
         # and increment the `index` accordingly

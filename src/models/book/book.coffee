@@ -91,6 +91,7 @@ class LYT.Book
 
     @resources   = {}
     @nccDocument = null
+    @_smils = {}
 
     pending = 2
     resolve = =>
@@ -134,7 +135,8 @@ class LYT.Book
 
           # If the url of the resource is the NCC document,
           # save the resource for later
-          if (/^ncc\.x?html?$/i).test localUri then ncc = @resources[localUri]
+          if /^ncc\.x?html?$/i.test localUri
+            ncc = @resources[localUri]
 
         # If an NCC reference was found, go to the next step:
         # Getting the NCC document, and the bookmarks in
@@ -149,7 +151,7 @@ class LYT.Book
     # Third step: Get the NCC document
     getNCC = (obj) =>
       # Instantiate an NCC document
-      ncc = new LYT.NCCDocument obj.url, @resources
+      ncc = new LYT.NCCDocument obj.url, @
 
       # Propagate a failure
       ncc.fail -> deferred.reject BOOK_NCC_NOT_LOADED_ERROR
@@ -204,6 +206,44 @@ class LYT.Book
 
   # ----------
 
+  getSMIL: (url) ->
+    deferred = jQuery.Deferred()
+
+    @_smils[url] or= new LYT.SMILDocument @resources[url]?.url, @
+
+    @_smils[url].done (smil) ->
+      deferred.resolve smil
+
+    @_smils[url].fail (error) =>
+      @_smils[url] = null
+      deferred.reject error
+
+    deferred.promise()
+
+  getSectionBySegment: (segment) ->
+    refs = (section.fragment for section in @nccDocument.sections)
+    first = true
+    current = segment
+    id = null
+
+    # Inclusive backwards search
+    iterator = () ->
+      if first
+        first = false
+        current
+      else
+        current = current.previous
+
+    first = segment.search iterator, (seg) ->
+      if seg.id in refs
+        id = seg.id
+      else
+        jQuery.makeArray(jQuery(seg.el).find "[id]").some (el) ->
+          if el.id in refs then id = el.id
+
+    section = @nccDocument.sections[refs.indexOf id]
+
+
   # Gets the book's metadata (as stated in the NCC document)
   getMetadata: ->
     @nccDocument?.getMetadata() or null
@@ -250,8 +290,15 @@ class LYT.Book
   # TODO: Sort bookmarks in reverse chronological order
   # TODO: Add remove bookmark method
   addBookmark: (segment, offset = 0) ->
+    bookmark = segment.bookmark offset
+    section = @getSectionBySegment segment
+
+    # Add closest section's title as bookmark title
+    bookmark.note = text: section.title
+
+    # Add to bookmarks and save
     @bookmarks or= []
-    @bookmarks.push segment.bookmark offset
+    @bookmarks.push bookmark
     @_normalizeBookmarks()
     @saveBookmarks()
 

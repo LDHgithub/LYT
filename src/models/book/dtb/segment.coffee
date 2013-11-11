@@ -36,9 +36,7 @@
 
 
 class LYT.Segment
-  # Number of segments to preload
-
-  constructor: (data, smilDocument) ->
+  constructor: (data, document) ->
     # Set up deferred load of images
     @_deferred = jQuery.Deferred()
     @_deferred.promise this
@@ -49,10 +47,10 @@ class LYT.Segment
     @start       = data.start
     @end         = data.end
     @canBookmark = data.canBookmark
-    @audio       = smilDocument.book.resources[data.audio.src]?.url
+    @audio       = document.book.resources[data.audio.src]?.url
     @data        = data
     @el          = data.par
-    @smilDocument = smilDocument
+    @document    = document
     # Will be initialized in the load() method:
     @text        = null
     @html        = null
@@ -70,7 +68,7 @@ class LYT.Segment
 
     # Parse transcript content
     [@contentUrl, @contentId] = @data.text.src.split "#"
-    resource = @smilDocument.book.resources[@contentUrl]
+    resource = @document.book.resources[@contentUrl]
     if not resource
       log.error "Segment: no absolute URL for content #{@contentUrl}"
       @_deferred.reject()
@@ -78,7 +76,7 @@ class LYT.Segment
       unless resource.document
         resource.document = new LYT.TextContentDocument resource.url
         # TODO: The initialization below should belong in LYT.TextContentDocument
-        resource.document.done (document) => document.resolveUrls @smilDocument.book.resources
+        resource.document.done (document) => document.resolveUrls @document.book.resources
       promise = resource.document.pipe (document) => @parseContent document
       promise.done => @_deferred.resolve this
       promise.fail (status, error) =>
@@ -87,7 +85,7 @@ class LYT.Segment
 
     return @_deferred.promise()
 
-  url: -> "#{@smilDocument.url}##{@id}"
+  url: -> "#{@document.url}##{@id}"
 
   ready: -> @_deferred.state() isnt "pending"
 
@@ -154,11 +152,11 @@ class LYT.Segment
     @.load()
     return if not (preloadCount > 0)
 
-    @.done (segment) ->
+    @.done (segment) =>
       if next = segment.next
         next.preloadNext(preloadCount - 1)
       else
-        nextSection = (@book.getSectionBySegment segment)?.next
+        nextSection = (@document.book.getSectionBySegment segment)?.next
         if nextSection
           nextSection.firstSegment().done (next) ->
             next.preloadNext(preloadCount - 1)

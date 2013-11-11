@@ -305,11 +305,22 @@ class LYT.Book
     @lastmark = segment.bookmark offset
     @saveBookmarks()
 
-  # Will rewind to start if no url is provided
   segmentByURL: (url) ->
-    if url?
-      if segment = @nccDocument.getSegmentByURL(url)
-        return segment
+    deferred = jQuery.Deferred()
+
+    #TODO: is this robust?
+    [smil, id] = url.split '#'
+    smil = smil.split('/')
+    smil = smil[smil.length - 1]
+
+    @getSMIL(smil).done (document) ->
+      segment = document.getSegmentById id
+      if segment
+        segment.load().done (segment) -> deferred.resolve segment
+      else
+        deferred.reject segment
+
+    deferred.promise()
 
   # Get the following segment if we are very close to the end of the current
   # segment and the following segment starts within the fudge limit.
@@ -322,7 +333,7 @@ class LYT.Book
       log.error 'Book: segmentByAudioOffset: audio not provided'
       return jQuery.Deferred().reject('audio not provided')
     deferred = jQuery.Deferred()
-    promise = @searchSections (section, start) =>
+    promise = @searchSections start, (section) =>
       for segment in section.document.segments
         # Using 0.01s to cover rounding errors (yes, they do occur)
         if segment.audio is audio and segment.start - 0.01 <= offset < segment.end + 0.01
@@ -332,6 +343,7 @@ class LYT.Book
           log.message "Book: segmentByAudioOffset: load segment #{segment.url()}"
           segment.load()
           return segment
+
     promise.done (segment) ->
       segment.done -> deferred.resolve segment
     promise.fail -> deferred.reject()
@@ -349,8 +361,7 @@ class LYT.Book
   #          with no return value.
   #
   # start:   the section to start searching from (default: current section).
-  searchSections: (handler, start) ->
-
+  searchSections: (start, handler) ->
     # The use of iterators below can easily be adapted to the Strategy
     # design pattern, accommodating other search orders.
 

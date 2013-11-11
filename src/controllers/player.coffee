@@ -338,20 +338,12 @@ LYT.player =
       # current segment (otherwise we are seeking ahead).
       segment = @currentSegment
       if segment? and status.src == segment.audio and segment.start < time + 0.1 < segment.end + 2
-        if time < segment.end
-          # Segment and audio are in sync
-          @lastplayed =
-            book:    segment.section.nccDocument.book.id
-            section: segment.section.url
-            segment: segment.id
-            offset:  time
-            updated: new Date()
-        else
+        if time >= segment.end
           # Segment and audio are not in sync, move to next segment
           # This block uses the current segment for synchronization.
           log.message "Player: play: progress: queue for offset #{time}"
           log.message "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}], no segment at #{time}, skipping to next segment."
-          nextSegment = @nextSegment segment
+          nextSegment = @getNextSegment()
           timeoutHandler = =>
             LYT.loader.register 'Loading book', nextSegment
             LYT.render.disablePlayerNavigation()
@@ -384,7 +376,7 @@ LYT.player =
             if next?
               if next.audio is status.src and next.start - 0.1 < time < next.end + 0.1
                 # Audio has progressed to next segment, so just update
-                @currentSegment = next
+                @updateCurrentSegment next
                 @updateHtml next
               else
                 # The segment next requires a seek and maybe loading a
@@ -408,7 +400,7 @@ LYT.player =
           log.group "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}]: ", segment
         else
           log.message 'Player: play: progress: no current segment set.'
-        nextSegment = @book.segmentByAudioOffset status.src, time, @currentSection()
+        nextSegment = @book.segmentByAudioOffset status.src, time, 0.1, @currentSection()
         nextSegment.fail (error) ->
           # TODO: The user may have navigated to a place in the audio stream
           #       that isn't included in the book. This should be handled by
@@ -418,6 +410,7 @@ LYT.player =
         nextSegment.done (next) =>
           if next
             log.message "Player: play: progress: (#{status.currentTime}s) moved to #{next.url()}: [#{next.start}, #{next.end}]"
+            @updateCurrentSegment next
             @updateHtml next
           else
             log.error "Player: play: progress: Unable to load any segment for #{status.src}, offset #{time}."
@@ -439,6 +432,7 @@ LYT.player =
     log.message "Player: seekSmilOffsetOrLastmark: #{url}, #{smilOffset}"
     promise = jQuery.Deferred().resolve()
     # Now seek to the right point in the book
+    debugger
     if not url and @book.lastmark?
       url = @book.lastmark.URI
       smilOffset = @book.lastmark.timeOffset
@@ -461,10 +455,10 @@ LYT.player =
             log.message "Player: failed to load #{url} containing auto generated bookmarks - rewinding to start"
           else
             log.error "Player: failed to load url #{url}: #{error} - rewinding to start"
-          @book.rewind()
+          @rewind()
       )
     else
-      promise = promise.then => @book.rewind()
+      promise = promise.then => @rewind()
       promise = promise.then (segment) => @seekSegmentOffset segment, 0
 
     promise.fail -> log.error "Player: failed to find segment: #{url}"
@@ -572,14 +566,6 @@ LYT.player =
   # Returns segment promise
   # TODO: provide a visual cue on the next and previous section buttons if there are no next or previous section.
   ###
-  nextSegment: ->
-    return unless @book?
-    if @book.hasNextSegment() is false
-      LYT.render.bookEnd()
-      delete @book.lastmark
-      @book.saveBookmarks()
-      return
-    @navigate @book.nextSegment()
 
   # Skip to next segment
   # Returns segment promise
@@ -590,7 +576,7 @@ LYT.player =
 
 
   #This part describes the playlist features of the player class
-  currentSection: -> @currentSegment?.section
+  currentSection: -> @book.getSectionBySegment @currentSegment
 
   hasNextSegment: -> @currentSegment?.hasNext() or @hasNextSection()
 
@@ -608,7 +594,11 @@ LYT.player =
         @currentSegment = segment
     segment
 
-  rewind: -> @updateCurrentSegment @nccDocument.firstSegment()
+  rewind: -> @updateCurrentSegment @book.nccDocument.firstSegment()
+
+  getNextSection: ->
+    if @currentSection().next
+      @currentSection().next.load()
 
   nextSection: ->
     # FIXME: loading segments is the responsibility of the section each
@@ -624,13 +614,22 @@ LYT.player =
     @updateCurrentSegment @currentSection().previous.firstSegment()
 
   nextSegment: ->
+    if not @hasNextSegment()
+      LYT.render.bookEnd()
+      delete @book.lastmark
+      @book.saveBookmarks()
+    else
+      @navigate @getNextSegment()
+
+  getNextSegment: ->
+    debugger
     if @currentSegment.hasNext()
       # FIXME: loading segments is the responsibility of the section each
       # each segment belongs to.
       @currentSegment.next.load()
       return @currentSegment.next
     else
-      return @nextSection()
+      return @getNextSection().firstSegment()
 
   previousSegment: ->
     if @currentSegment.hasPrevious()

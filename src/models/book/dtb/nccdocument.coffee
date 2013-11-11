@@ -57,28 +57,6 @@ do ->
           segment.fail -> deferred.reject()
       deferred.promise()
 
-    getSegmentByURL: (url) ->
-      deferred = jQuery.Deferred()
-      deferred.fail -> log.message "NccDocument: getSegmentByURL failed with url #{url}"
-      this.fail -> deferred.reject()
-      this.done (document) ->
-        id = url.split('#')[1]
-        if section = document.getSectionByURL(url)
-          section.fail -> deferred.reject("Unable to find any section with url #{url}")
-          section.done (section) ->
-            segment
-            if id? and id isnt ""
-              segment = section.getSegmentById(id)
-            else
-              segment = section.firstSegment()
-            segment.done (segment) -> deferred.resolve(segment)
-            segment.fail -> deferred.reject("Section found for url #{url}, but couldn't find segment with id #{id}")
-      return deferred.promise()
- 
-    getSectionIndexById: (id) ->
-      return i for section, i in @sections when section.id is id
-
-
   # -------
 
   # ## Privileged

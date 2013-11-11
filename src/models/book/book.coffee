@@ -1,7 +1,6 @@
 # Requires `/common`
 # Requires `/support/lyt/utils`
 # Requires `/models/service/service`
-# Requires `playlist`
 # Requires `dtb/nccdocument`
 
 # -------------------
@@ -259,68 +258,11 @@ class LYT.Book
     @lastmark = segment.bookmark offset
     @saveBookmarks()
 
-  #This part describes the playlist features of the book class
-  currentSection: -> @currentSegment?.section
-
-  hasNextSegment: -> @currentSegment?.hasNext() or @hasNextSection()
-
-  hasPreviousSegment: -> @currentSegment?.hasPrevious() or @hasPreviousSection()
-
-  hasNextSection: -> @currentSection()?.next?
-
-  hasPreviousSection: -> @currentSection()?.previous?
-
-  load: (segment) ->
-    log.message "Playlist: load: queue segment #{segment.url?() or '(N/A)'}"
-    segment.done (segment) =>
-      if segment?
-        log.message "Playlist: load: set currentSegment to [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}]"
-        @currentSegment = segment
-    segment
-
-  rewind: -> @load @nccDocument.firstSegment()
-
-  nextSection: ->
-    # FIXME: loading segments is the responsibility of the section each
-    # each segment belongs to.
-    if @currentSection().next
-      @currentSection().next.load()
-      @load @currentSection().next.firstSegment()
-
-  previousSection: ->
-    # FIXME: loading segments is the responsibility of the section each
-    # each segment belongs to.
-    @currentSection().previous.load()
-    @load @currentSection().previous.firstSegment()
-
-  nextSegment: ->
-    if @currentSegment.hasNext()
-      # FIXME: loading segments is the responsibility of the section each
-      # each segment belongs to.
-      @currentSegment.next.load()
-      return @load @currentSegment.next
-    else
-      return @nextSection()
-
-  previousSegment: ->
-    if @currentSegment.hasPrevious()
-      # FIXME: loading segments is the responsibility of the section each
-      # each segment belongs to.
-      @currentSegment.previous.load()
-      return @load @currentSegment.previous
-    else
-      if @currentSection().previous
-        @currentSection().previous.load()
-        @currentSection().previous.pipe (section) =>
-          @load section.lastSegment()
-
   # Will rewind to start if no url is provided
   segmentByURL: (url) ->
     if url?
       if segment = @nccDocument.getSegmentByURL(url)
-        return @load segment
-    else
-      return @rewind()
+        return segment
 
   # Get the following segment if we are very close to the end of the current
   # segment and the following segment starts within the fudge limit.
@@ -328,21 +270,21 @@ class LYT.Book
     segment = segment.next if segment.end - offset < fudge and segment.next and offset - segment.next.start < fudge
     return segment
 
-  segmentByAudioOffset: (audio, offset = 0, fudge = 0.1) ->
+  segmentByAudioOffset: (audio, offset = 0, fudge = 0.1, start) ->
     if not audio? or audio is ''
-      log.error 'Playlist: segmentByAudioOffset: audio not provided'
+      log.error 'Book: segmentByAudioOffset: audio not provided'
       return jQuery.Deferred().reject('audio not provided')
     deferred = jQuery.Deferred()
-    promise = @searchSections (section) =>
+    promise = @searchSections (section, start) =>
       for segment in section.document.segments
         # Using 0.01s to cover rounding errors (yes, they do occur)
         if segment.audio is audio and segment.start - 0.01 <= offset < segment.end + 0.01
           segment = @_fudgeFix offset, segment
           # FIXME: loading segments is the responsibility of the section each
           # each segment belongs to.
-          log.message "Playlist: segmentByAudioOffset: load segment #{segment.url()}"
+          log.message "Book: segmentByAudioOffset: load segment #{segment.url()}"
           segment.load()
-          return @load segment
+          return segment
     promise.done (segment) ->
       segment.done -> deferred.resolve segment
     promise.fail -> deferred.reject()
@@ -360,7 +302,7 @@ class LYT.Book
   #          with no return value.
   #
   # start:   the section to start searching from (default: current section).
-  searchSections: (handler, start = @currentSection()) ->
+  searchSections: (handler, start) ->
 
     # The use of iterators below can easily be adapted to the Strategy
     # design pattern, accommodating other search orders.
@@ -413,6 +355,6 @@ class LYT.Book
     searchNext()
 
   segmentBySectionOffset: (section, offset = 0) ->
-    @load section.pipe (section) -> @_fudgeFix offset, section.getSegmentByOffset offset
+    #@updateCurrentSegment section.pipe (section) -> @_fudgeFix offset, section.getSegmentByOffset offset
 
 

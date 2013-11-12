@@ -329,11 +329,13 @@ class LYT.Book
     return segment
 
   segmentByAudioOffset: (audio, offset = 0, fudge = 0.1, start) ->
-    if not audio? or audio is ''
+    if not audio
       log.error 'Book: segmentByAudioOffset: audio not provided'
       return jQuery.Deferred().reject('audio not provided')
+
     deferred = jQuery.Deferred()
     promise = @searchSections start, (section) =>
+      console.log 'searching', section, section.document.segments, start
       for segment in section.document.segments
         # Using 0.01s to cover rounding errors (yes, they do occur)
         if segment.audio is audio and segment.start - 0.01 <= offset < segment.end + 0.01
@@ -400,7 +402,9 @@ class LYT.Book
         return result if result
 
     searchNext = () ->
-      if section = iterator()
+      section = iterator()
+      console.log 'section***', section.title
+      if section
         section.load()
         return section.pipe (section) ->
           if result = handler section

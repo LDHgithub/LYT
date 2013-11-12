@@ -400,6 +400,7 @@ LYT.player =
           log.group "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}]: ", segment
         else
           log.message 'Player: play: progress: no current segment set.'
+        console.log 'loading by audio offset', status.src, time, @currentSection()
         nextSegment = @book.segmentByAudioOffset status.src, time, 0.1, @currentSection()
         nextSegment.fail (error) ->
           # TODO: The user may have navigated to a place in the audio stream
@@ -432,7 +433,6 @@ LYT.player =
     log.message "Player: seekSmilOffsetOrLastmark: #{url}, #{smilOffset}"
     promise = jQuery.Deferred().resolve()
     # Now seek to the right point in the book
-    debugger
     if not url and @book.lastmark?
       url = @book.lastmark.URI
       smilOffset = @book.lastmark.timeOffset
@@ -545,17 +545,20 @@ LYT.player =
     @seekSegmentOffset(segment, offset).then => @play()
 
   navigate: (segmentPromise) ->
-    handler = null
+    console.log 'navigating to', segmentPromise
     if @playing
       handler = =>
+        console.log 'HANDLER', 'playing'
         @playSegment segmentPromise
         segmentPromise
     else
       handler = =>
+        console.log 'HANDLER', 'paused'
         @seekSegmentOffset segmentPromise
         segmentPromise
 
     if @playCommand
+      console.log 'cancelling playCommand'
       # Stop playback and set up both done and fail handlers
       @playCommand.cancel()
       @playCommand.then handler, handler
@@ -622,7 +625,6 @@ LYT.player =
       @navigate @getNextSegment()
 
   getNextSegment: ->
-    debugger
     if @currentSegment.hasNext()
       # FIXME: loading segments is the responsibility of the section each
       # each segment belongs to.
@@ -642,12 +644,6 @@ LYT.player =
         @currentSection().previous.load()
         @currentSection().previous.pipe (section) =>
           @updateCurrentSegment section.lastSegment()
-
-
-
-
-
-
 
   updateLastMark: (force = false, segment) ->
     return unless LYT.session.getCredentials() and LYT.session.getCredentials().username isnt LYT.config.service.guestLogin

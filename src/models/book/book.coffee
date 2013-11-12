@@ -336,7 +336,6 @@ class LYT.Book
 
     deferred = jQuery.Deferred()
     promise = @searchSections start, (section) =>
-      console.log 'searching', section, section.document.segments, start
       for segment in section.document.segments
         # Using 0.01s to cover rounding errors (yes, they do occur)
         if segment.audio is audio and segment.start - 0.01 <= offset < segment.end + 0.01
@@ -404,7 +403,6 @@ class LYT.Book
 
     searchNext = () ->
       section = iterator()
-      console.log 'section***', section.title
       if section
         section.load()
         return section.pipe (section) ->

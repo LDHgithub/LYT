@@ -23,7 +23,7 @@ LYT.player =
 
   # Short utility methods ################################################### #
 
-  
+
   #segment: -> @book?.currentSegment
 
   #section: -> @book?.currentSection()
@@ -400,7 +400,6 @@ LYT.player =
           log.group "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}]: ", segment
         else
           log.message 'Player: play: progress: no current segment set.'
-        console.log 'loading by audio offset', status.src, time, @currentSection()
         nextSegment = @book.segmentByAudioOffset status.src, time, 0.1, @currentSection()
         nextSegment.fail (error) ->
           # TODO: The user may have navigated to a place in the audio stream
@@ -514,7 +513,9 @@ LYT.player =
         (new LYT.player.command.seek @el, offset).then -> segment
 
     # Once the seek has completed, render the segment
-    result.done (segment) => @updateHtml segment
+    result.done (segment) =>
+      @updateCurrentSegment segment
+      @updateHtml segment
 
     # If this takes a long time, put up the loader
     # The timeout ensures that we don't display the loader if seeking
@@ -545,40 +546,24 @@ LYT.player =
     @seekSegmentOffset(segment, offset).then => @play()
 
   navigate: (segmentPromise) ->
-    console.log 'navigating to', segmentPromise
     if @playing
       handler = =>
-        console.log 'HANDLER', 'playing'
         @playSegment segmentPromise
         segmentPromise
     else
       handler = =>
-        console.log 'HANDLER', 'paused'
         @seekSegmentOffset segmentPromise
         segmentPromise
 
     if @playCommand
-      console.log 'cancelling playCommand'
       # Stop playback and set up both done and fail handlers
       @playCommand.cancel()
       @playCommand.then handler, handler
     else
       handler()
 
-  # Skip to next segment
-  # Returns segment promise
-  # TODO: provide a visual cue on the next and previous section buttons if there are no next or previous section.
-  ###
 
-  # Skip to next segment
-  # Returns segment promise
-  previousSegment: ->
-    return unless @book?.hasPreviousSegment()
-    @navigate @book.previousSegment()
-  ###  
-
-
-  #This part describes the playlist features of the player class
+  # This part describes the playlist features of the player class
   currentSection: -> @book.getSectionBySegment @currentSegment
 
   hasNextSegment: -> @currentSegment?.hasNext() or @hasNextSection()
@@ -604,15 +589,11 @@ LYT.player =
       @currentSection().next.load()
 
   nextSection: ->
-    # FIXME: loading segments is the responsibility of the section each
-    # each segment belongs to.
     if @currentSection().next
       @currentSection().next.load()
       @updateCurrentSegment @currentSection().next.firstSegment()
 
   previousSection: ->
-    # FIXME: loading segments is the responsibility of the section each
-    # each segment belongs to.
     @currentSection().previous.load()
     @updateCurrentSegment @currentSection().previous.firstSegment()
 
@@ -622,7 +603,9 @@ LYT.player =
       delete @book.lastmark
       @book.saveBookmarks()
     else
-      @navigate @getNextSegment()
+      next = @getNextSegment()
+      @updateCurrentSegment next
+      @navigate next
 
   getNextSegment: ->
     if @currentSegment.hasNext()
@@ -634,16 +617,19 @@ LYT.player =
       return @getNextSection().firstSegment()
 
   previousSegment: ->
+    return unless @hasPreviousSegment()
+    prev = @getPreviousSegment()
+    @updateCurrentSegment prev
+    @navigate prev
+
+  getPreviousSegment: ->
     if @currentSegment.hasPrevious()
-      # FIXME: loading segments is the responsibility of the section each
-      # each segment belongs to.
-      @currentSegment.previous.load()
-      return @updateCurrentSegment @currentSegment.previous
-    else
-      if @currentSection().previous
-        @currentSection().previous.load()
-        @currentSection().previous.pipe (section) =>
-          @updateCurrentSegment section.lastSegment()
+      return @currentSegment.previous.load()
+    else if @currentSection().previous
+      @currentSection()
+        .previous
+        .load()
+        .pipe (section) => section.lastSegment()
 
   updateLastMark: (force = false, segment) ->
     return unless LYT.session.getCredentials() and LYT.session.getCredentials().username isnt LYT.config.service.guestLogin

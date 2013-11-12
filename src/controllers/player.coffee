@@ -343,7 +343,6 @@ LYT.player =
           # This block uses the current segment for synchronization.
           log.message "Player: play: progress: queue for offset #{time}"
           log.message "Player: play: progress: current segment: [#{segment.url()}, #{segment.start}, #{segment.end}, #{segment.audio}], no segment at #{time}, skipping to next segment."
-          nextSegment = @getNextSegment()
           timeoutHandler = =>
             LYT.loader.register 'Loading book', nextSegment
             LYT.render.disablePlayerNavigation()
@@ -352,10 +351,10 @@ LYT.player =
             nextSegment.done -> getPlayCommand()
             nextSegment.fail -> log.error 'Player: play: progress: unable to load next segment after pause.'
 
-          # If we're in skip state, and are about to change section
+          # If we're in skip state, and about to change section
           if @inSkipState and not segment.hasNext()
             log.message "Player: play: progress: In skip state"
-            curSection = segment.section
+            curSection = @book.getSectionBySegment segment
             ncc = curSection.nccDocument
 
             # Get index of next section (which apparently is meta-content)
@@ -366,9 +365,8 @@ LYT.player =
 
             log.message "Player: play: Skipping #{skips - 1} meta-content sections"
             nextSegment = nextSection.load().firstSegment()
-            @playlist().load nextSegment
           else
-            nextSegment = @playlist().nextSegment()
+            nextSegment = @getNextSegment()
 
           timer = setTimeout timeoutHandler, 1000
           nextSegment.done (next) =>

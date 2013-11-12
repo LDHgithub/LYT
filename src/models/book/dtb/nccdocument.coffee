@@ -57,6 +57,10 @@ do ->
           segment.fail -> deferred.reject()
       deferred.promise()
 
+    getSectionIndexById: (id) ->
+      return i for section, i in @sections when section.id is id
+
+
   # -------
 
   # ## Privileged

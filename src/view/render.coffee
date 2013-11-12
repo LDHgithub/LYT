@@ -267,16 +267,15 @@ LYT.render = do ->
 
 
   bookIndex: (book, view) ->
-    # Create an ordered list wrapper for the list
-    # FIXME: We should be using the playlist here - any reference to NCC- or
-    # SMIL documents from this class is not good design.
+    # FIXME: We should be using asking the book for a TOC, not the NCC directly
+    # since this is a sign of lack of decoupling
     @createbookIndex book.nccDocument.structure, view, book
 
 
   createbookIndex: (items, view, book, root = null) ->
     isPlaying = (sectionId) ->
       return unless String(book.id) is String(LYT.player.book.id)
-      return unless item.url is LYT.player.currentSection().url
+      return unless item.ref is LYT.player.currentSection().ref
       return true
 
     $('#index-back-button').removeAttr 'nodeid'

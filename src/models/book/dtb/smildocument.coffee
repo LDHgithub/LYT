@@ -22,6 +22,12 @@ do ->
 
       return null
 
+    getContainingSegment: (id) ->
+      for segment, index in @segments
+        return segment if segment.el.find("##{id}").length > 0
+
+      return null
+
     getSegmentAtOffset: (offset = 0) ->
       offset = 0 if offset < 0
       for segment, index in @segments

@@ -314,7 +314,8 @@ class LYT.Book
     smil = smil[smil.length - 1]
 
     @getSMIL(smil).done (document) ->
-      segment = document.getSegmentById id
+      segment = if id then document.getSegmentById id else document.segments[0]
+
       if segment
         segment.load().done (segment) -> deferred.resolve segment
       else

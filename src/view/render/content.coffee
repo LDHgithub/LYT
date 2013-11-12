@@ -280,9 +280,9 @@ LYT.render.content = do ->
   renderSegment = (segment) ->
     now = new Date()
     renderDelta = now - lastRender if lastRender
-    section = segment.document.book.getSectionBySegment segment # lol
 
     if segment
+      section = segment.document.book.getSectionBySegment segment # lol
       $('.player-chapter-title').text section.title
       switch segment.type
         when 'cartoon'

@@ -276,7 +276,7 @@ LYT.render = do ->
   createbookIndex: (items, view, book, root = null) ->
     isPlaying = (sectionId) ->
       return unless String(book.id) is String(LYT.player.book.id)
-      return unless item.url is LYT.player.segment().section.url
+      return unless item.url is LYT.player.currentSection().url
       return true
 
     $('#index-back-button').removeAttr 'nodeid'

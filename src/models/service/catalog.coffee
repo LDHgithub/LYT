@@ -56,6 +56,97 @@ LYT.catalog = do ->
     data:        JSON.stringify data
     url:         url
 
+  # Returns an options array for the autocomplete function.
+  getAutocompleteOptions = ->
+    # Clone the autocomplete options from config
+    setup = jQuery.extend {}, (LYT.config.catalog.autocomplete.setup or {})
+
+    # Add the `source` callback
+    setup.source = (request, response) ->
+      # Create the AJAX options. Since `request` is a simple object containing
+      # a single value, called `term`, the request object can be sent directly
+      # to the `getAjaxOptions` helper
+      options = getAjaxOptions LYT.config.catalog.autocomplete.url, request
+
+      # An internal function to be called when the AJAX call completes
+      complete = (results) ->
+        # Send the results - empty or not - back to the jQuery
+        # UI's autocomplete function (the `response` callback
+        # must always be called, regardless of whether the AJAX
+        # call succeeded or not)
+
+        # If we don't have enough results then ask google
+        if results.length < LYT.config.catalog.autocomplete.google_trigger
+          gresult = LYT.google.doAutoComplete (request.term)
+
+          gresult.done (data) =>
+            r = {}
+            for i in results.concat data
+              if r[i.toLowerCase()] is undefined
+                r[i.toLowerCase()] = i.charAt(0).toUpperCase() + i.slice(1)
+            p = []
+            p.push j for i, j of r
+            response p
+
+          gresult.fail ->
+            # No results from Google that match entries in catalogsearch
+            response results
+
+          gresult.always ->
+            # Emit an event with the results attached as `event.results`
+            # and search term stored in 'event.term'
+            event = jQuery.Event "autocomplete"
+            event.results = results
+            event.term = request.term
+            jQuery(LYT.catalog).trigger event
+
+        else
+          # We have enough matches in catalogsearch so show em
+          response results
+
+          # Emit an event with the results attached as `event.results`
+          # and search term stored in 'event.term'
+          event = jQuery.Event "autocomplete"
+          event.results = results
+          event.term = request.term
+          jQuery(LYT.catalog).trigger event
+
+      if autocompleteCache[request.term]?
+        complete autocompleteCache[request.term]
+        return
+
+      # Perform the request
+      jQuery.ajax(options)
+        # On success, extract the results
+        .done (data) ->
+          results = data.d or []
+          autocompleteCache[request.term] = results
+          complete results
+        # On fail, just call `complete` (i.e. fail silently)
+        .fail -> complete []
+
+    # Return the setup object
+    setup
+ # --------------- PUBLIC functions and properties ---------------
+
+ # Sorting options for the server-side function
+  SORTING_OPTIONS :
+    "new":        0 # default
+    "lastweek":   1
+    "lastmonth":  2
+    "last3month": 3
+    "thisyear":   4
+    "forever":    5
+
+  # Fields to be searched by the server-side function
+  FIELD_OPTIONS :
+    "freetext": 0 # all fields (default)
+    "author":   1
+    "title":    2
+    "keywords": 3
+    "speaker":  4
+    "teaser":   5
+    "series":   6
 
   # Perform a "full" search. Takes the search term as its
   # only argument, and returns a deferred object.
@@ -135,78 +226,6 @@ LYT.catalog = do ->
   attachAutocomplete = (element) ->
     jQuery(element).autocomplete getAutocompleteOptions()
 
-
-  # Returns an options array for the autocomplete function.
-  getAutocompleteOptions = ->
-    # Clone the autocomplete options from config
-    setup = jQuery.extend {}, (LYT.config.catalog.autocomplete.setup or {})
-
-    # Add the `source` callback
-    setup.source = (request, response) ->
-      # Create the AJAX options. Since `request` is a simple object containing
-      # a single value, called `term`, the request object can be sent directly
-      # to the `getAjaxOptions` helper
-      options = getAjaxOptions LYT.config.catalog.autocomplete.url, request
-
-      # An internal function to be called when the AJAX call completes
-      complete = (results) ->
-        # Send the results - empty or not - back to the jQuery
-        # UI's autocomplete function (the `response` callback
-        # must always be called, regardless of whether the AJAX
-        # call succeeded or not)
-
-        # If we don't have enough results then ask google
-        if results.length < LYT.config.catalog.autocomplete.google_trigger
-          gresult = LYT.google.doAutoComplete (request.term)
-
-          gresult.done (data) =>
-            r = {}
-            for i in results.concat data
-              if r[i.toLowerCase()] is undefined
-                r[i.toLowerCase()] = i.charAt(0).toUpperCase() + i.slice(1)
-            p = []
-            p.push j for i, j of r
-            response p
-
-          gresult.fail ->
-            # No results from Google that match entries in catalogsearch
-            response results
-
-          gresult.always ->
-            # Emit an event with the results attached as `event.results`
-            # and search term stored in 'event.term'
-            event = jQuery.Event "autocomplete"
-            event.results = results
-            event.term = request.term
-            jQuery(LYT.catalog).trigger event
-
-        else
-          # We have enough matches in catalogsearch so show em
-          response results
-
-          # Emit an event with the results attached as `event.results`
-          # and search term stored in 'event.term'
-          event = jQuery.Event "autocomplete"
-          event.results = results
-          event.term = request.term
-          jQuery(LYT.catalog).trigger event
-
-      if autocompleteCache[request.term]?
-        complete autocompleteCache[request.term]
-        return
-
-      # Perform the request
-      jQuery.ajax(options)
-        # On success, extract the results
-        .done (data) ->
-          results = data.d or []
-          autocompleteCache[request.term] = results
-          complete results
-        # On fail, just call `complete` (i.e. fail silently)
-        .fail -> complete []
-
-    # Return the setup object
-    setup
 
   # Get book suggestions
   getSuggestions = ->

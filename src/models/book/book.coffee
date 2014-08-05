@@ -320,7 +320,8 @@ class LYT.Book
     [smil, fragment] = url.split '#'
     smil = smil.split('/').pop()
 
-    @getSMIL(smil).done (document) ->
+    @getSMIL(smil)
+    .done (document) ->
       if fragment
         segment = document.getContainingSegment fragment
       else
@@ -329,7 +330,9 @@ class LYT.Book
       if segment
         segment.load().done (segment) -> deferred.resolve segment
       else
-        deferred.reject
+        deferred.reject()
+    .fail ->
+      deferred.reject()
 
     deferred.promise()
 
@@ -408,13 +411,13 @@ class LYT.Book
     searchNext = () ->
       if section = iterator()
         section.load()
-        return section.pipe (section) ->
+        section.then (section) ->
           if result = handler section
-            return jQuery.Deferred().resolve result
+            result
           else
-            return searchNext()
+            searchNext()
       else
-        return jQuery.Deferred().reject()
+        jQuery.Deferred().reject()
 
     searchNext()
 
